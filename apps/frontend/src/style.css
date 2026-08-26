@@ -1,0 +1,6 @@
+/* Tailwind est utilisé uniquement pour les utilitaires de mise en page
+   (espacement, flex/grid, responsive) : les composants restent DSFR.
+   On n'importe pas le "preflight" de Tailwind pour ne pas entrer en
+   conflit avec le reset CSS du DSFR. */
+@import 'tailwindcss/theme' layer(theme);
+@import 'tailwindcss/utilities' layer(utilities);

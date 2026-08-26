@@ -13,7 +13,9 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # --- Développement : serveur Vite avec hot-reload -------------------------
 FROM deps AS dev
-COPY . .
+COPY --chown=node:node . .
+RUN chown -R node:node /app
+USER node
 EXPOSE 5173
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget -qO- http://127.0.0.1:5173/ || exit 1
@@ -28,6 +30,7 @@ RUN pnpm build
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS production
 COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
 COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
+USER nginx
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget -qO- http://127.0.0.1:8080/ || exit 1

@@ -1,0 +1,16 @@
+{
+  "name": "ocr-monorepo",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint:frontend": "cd apps/client && pnpm run lint",
+    "lint:backend": "make lint",
+    "lint:all": "pnpm run lint:frontend && pnpm run lint:backend"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
+    "husky": "^9.1.7"
+  },
+  "packageManager": "pnpm@10.17.1"
+}

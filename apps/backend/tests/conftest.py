@@ -1,15 +1,30 @@
 import time
+import uuid
 
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import app.services.token_verifier as token_verifier
 from app.config import get_settings
+from app.db.base import Base
+from app.db.models.users import User
 from app.main import app
 from app.schemas.auth import CurrentUser
 from app.services.sessions import get_session_store
+
+# Real Postgres, not sqlite: the models use Postgres-specific types (native
+# UUID, JSONB, server-side ENUMs) that sqlite can't represent. Matches
+# docker-compose.yml's `postgres` service - run `docker compose up -d
+# postgres` before running DB-backed tests.
+#
+# A DEDICATED database, not the dev one: this suite runs
+# `Base.metadata.create_all`/`drop_all` around every test, which would wipe
+# real dev data if pointed at the same `mesdocuments` database. See
+# `infra/postgres/init-test-db.sql`.
+TEST_DATABASE_URL = "postgresql+asyncpg://mesdocuments:mesdocuments@localhost:5432/mesdocuments_test"
 
 ISSUER = "http://localhost:8080/realms/mesdocuments"
 AUDIENCE = "mesdocuments-backend"
@@ -85,3 +100,36 @@ def make_current_user() -> CurrentUser:
         name="Camille Bernard",
         roles=["user"],
     )
+
+
+@pytest.fixture
+async def db_session():
+    """A real async session against a freshly-created schema.
+
+    `create_all`/`drop_all` (not Alembic) on purpose: fast, and the point of
+    these tests is exercising repositories/services, not the migration
+    itself - that already has its own upgrade/downgrade verification.
+    """
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
+@pytest.fixture
+async def make_user(db_session: AsyncSession):
+    async def _make_user(**overrides) -> User:
+        defaults = {"id": uuid.uuid4(), "username": "camille", "email": "camille@example.fr"}
+        user = User(**{**defaults, **overrides})
+        db_session.add(user)
+        await db_session.flush()
+        return user
+
+    return _make_user

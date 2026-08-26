@@ -1,36 +1,11 @@
-import type { DocumentFile, DocumentSummary, Folder, TranscriptSegment } from '@/types'
+import type { DocumentFile, DocumentSummary, TranscriptSegment } from '@/types'
 import { currentUser } from './users'
 
-function folder(id: string, name: string, parentId: string | null, path: string[]): Folder {
-  return {
-    id,
-    name,
-    parentId,
-    path,
-    createdAt: '2026-06-01T09:00:00.000Z',
-    updatedAt: '2026-08-25T10:00:00.000Z',
-    isFavorite: false,
-  }
-}
-
-export const rootFolder = folder('root', 'Mes documents', null, [])
-
-export const mockFolders: Folder[] = [
-  rootFolder,
-  folder('clients', 'Clients', 'root', ['Mes documents']),
-  folder('acme', 'ACME', 'clients', ['Mes documents', 'Clients']),
-  folder('acme-contrats', 'Contrats', 'acme', ['Mes documents', 'Clients', 'ACME']),
-  folder('acme-reunions', 'Réunions', 'acme', ['Mes documents', 'Clients', 'ACME']),
-  folder('acme-admin', 'Documents administratifs', 'acme', ['Mes documents', 'Clients', 'ACME']),
-  folder('total', 'Total', 'clients', ['Mes documents', 'Clients']),
-  folder('total-contrats', 'Contrats', 'total', ['Mes documents', 'Clients', 'Total']),
-  folder('finance', 'Finance', 'root', ['Mes documents']),
-  folder('finance-factures', 'Factures', 'finance', ['Mes documents', 'Finance']),
-  folder('finance-rapports', 'Rapports', 'finance', ['Mes documents', 'Finance']),
-  folder('rh', 'RH', 'root', ['Mes documents']),
-  folder('rh-procedures', 'Procédures', 'rh', ['Mes documents', 'RH']),
-  folder('rh-interne', 'Documents internes', 'rh', ['Mes documents', 'RH']),
-]
+// Folders are no longer mocked here - they come from the real backend (see
+// HttpFolderRepository). Files below keep their own hardcoded `path` and
+// `folderId`, which is why they still work standalone, but that folderId no
+// longer matches any real folder id: files won't show up when browsing a
+// real folder until the backend grows file endpoints.
 
 const favoriteFileIds = new Set(['f-contrat-2024', 'f-rapport-t2'])
 

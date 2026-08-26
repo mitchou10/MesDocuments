@@ -17,8 +17,10 @@ import type {
 
 export interface FolderRepository {
   getFolder(id: string): Promise<Folder>
-  getChildren(id: string): Promise<FolderChildren>
-  createFolder(parentId: string, name: string): Promise<Folder>
+  // null = root ("Mes documents"): there is no single root folder resource,
+  // only folders whose parentId is null.
+  getChildren(id: string | null): Promise<FolderChildren>
+  createFolder(parentId: string | null, name: string): Promise<Folder>
   rename(id: string, name: string): Promise<Folder>
   remove(id: string): Promise<void>
   toggleFavorite(id: string): Promise<Folder>

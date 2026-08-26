@@ -11,7 +11,9 @@ export interface Folder {
 }
 
 export interface FolderChildren {
-  folder: Folder
+  // null at the root: there is no single "root folder" resource on the
+  // backend, only folders with parentId === null.
+  folder: Folder | null
   subfolders: Folder[]
   files: DocumentFile[]
 }

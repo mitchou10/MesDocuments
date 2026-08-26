@@ -15,7 +15,7 @@ import type { DocumentFile, DocumentSource, Folder } from '@/types'
 const route = useRoute()
 const router = useRouter()
 
-const folderId = computed(() => (route.params.folderId as string | undefined) ?? 'root')
+const folderId = computed<string | null>(() => (route.params.folderId as string | undefined) ?? null)
 const sortBy = ref<'name' | 'date'>('name')
 
 const { data, state, error, reload } = useAsyncData(
@@ -95,7 +95,9 @@ async function askFolderQuestion(question: string, recursive: boolean) {
   folderAnswer.value = null
   const response = await documentRepository.askQuestion({
     question,
-    scope: { type: 'folder', id: folderId.value, recursive },
+    // At the root there is no single folder id to scope to - fall back to
+    // searching across everything the user has access to.
+    scope: folderId.value ? { type: 'folder', id: folderId.value, recursive } : { type: 'all' },
   })
   folderAnswer.value = response.answer
   folderSources.value = response.sources
@@ -126,10 +128,10 @@ const fileNames = computed<Record<string, string>>(() =>
         @ask="askFolderQuestion"
       />
 
-      <FolderBreadcrumb :folder="data.folder" />
+      <FolderBreadcrumb v-if="data.folder" :folder="data.folder" />
 
       <div class="flex items-center justify-between flex-wrap gap-3">
-        <h1 class="fr-h3 fr-mb-0">{{ data.folder.name }}</h1>
+        <h1 class="fr-h3 fr-mb-0">{{ data.folder?.name ?? 'Mes documents' }}</h1>
         <div class="flex gap-2">
           <button type="button" class="fr-btn fr-icon-add-line fr-btn--icon-left" @click="newFolderOpened = true">Nouveau</button>
           <button type="button" class="fr-btn fr-btn--secondary fr-icon-upload-line fr-btn--icon-left" @click="uploadOpened = true">Importer</button>

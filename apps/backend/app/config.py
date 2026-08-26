@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    database_url: str = "postgresql+asyncpg://mesdocuments:mesdocuments@localhost:5432/mesdocuments"
+
     @property
     def keycloak_jwks_url(self) -> str:
         base = self.keycloak_jwks_base_url or self.keycloak_issuer

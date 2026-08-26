@@ -29,6 +29,26 @@ services:
         - action: rebuild
           path: ./apps/frontend/pnpm-lock.yaml
 
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mesdocuments
+      POSTGRES_PASSWORD: mesdocuments
+      POSTGRES_DB: mesdocuments
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Only runs once, when the data directory is first initialized -
+      # creates `mesdocuments_test` alongside the main `mesdocuments` db, so
+      # the backend test suite never touches dev data.
+      - ./infra/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mesdocuments"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     command: start-dev --import-realm
@@ -66,8 +86,12 @@ services:
       MESDOCUMENTS_KEYCLOAK_AUDIENCE: mesdocuments-backend
       MESDOCUMENTS_FRONTEND_BASE_URL: http://localhost:5173
       MESDOCUMENTS_CORS_ORIGINS: '["http://localhost:5173"]'
+      MESDOCUMENTS_DATABASE_URL: postgresql+asyncpg://mesdocuments:mesdocuments@postgres:5432/mesdocuments
     depends_on:
-      - keycloak
+      keycloak:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     develop:
       watch:
         - action: sync
@@ -77,3 +101,6 @@ services:
           path: ./apps/backend/pyproject.toml
         - action: rebuild
           path: ./apps/backend/uv.lock
+
+volumes:
+  postgres-data:

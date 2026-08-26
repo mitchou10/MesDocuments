@@ -1,0 +1,26 @@
+services:
+  frontend:
+    build:
+      context: ./apps/frontend
+      target: dev
+    ports:
+      - "5173:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    develop:
+      watch:
+        # Code source : synchronisé à la volée dans le conteneur (HMR Vite).
+        - action: sync
+          path: ./apps/frontend/src
+          target: /app/src
+        - action: sync
+          path: ./apps/frontend/index.html
+          target: /app/index.html
+        - action: sync
+          path: ./apps/frontend/vite.config.ts
+          target: /app/vite.config.ts
+        # Dépendances modifiées : on reconstruit l'image.
+        - action: rebuild
+          path: ./apps/frontend/package.json
+        - action: rebuild
+          path: ./apps/frontend/pnpm-lock.yaml

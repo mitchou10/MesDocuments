@@ -31,10 +31,23 @@ env:
   AUTOMERGE_RELEASE: false
   PRERELEASE_BRANCH: dev
   RELEASE_BRANCH: main
-  RELEASE_CONFIG_FILE: .github/releases/release-please-config-release.json
-  RELEASE_MANIFEST_FILE: .github/releases/.release-please-manifest.json
-  PRERELEASE_CONFIG_FILE: .github/releases/release-please-config-prerelease.json
-  PRERELEASE_MANIFEST_FILE: .github/releases/.release-please-manifest-prerelease.json
+  # apps/backend and apps/frontend version independently (feat(backend)/
+  # feat(frontend) each bump only their own package), so each gets its own
+  # config/manifest pair. release-please-action only republishes its plain
+  # (un-prefixed) `version`/`release_created`/`tag_name` outputs - the ones
+  # the reusable release-app.yml wrapper exposes - when a manifest resolves
+  # to exactly ONE package. Splitting the files is what keeps that true,
+  # without having to fork or reimplement that wrapper (GitHub App auth,
+  # draft-release publishing, major/minor tagging, fork-PR-safe prerelease
+  # sync all live there and stay untouched this way).
+  RELEASE_CONFIG_FILE_BACKEND: .github/releases/release-please-config-release-backend.json
+  RELEASE_MANIFEST_FILE_BACKEND: .github/releases/.release-please-manifest-backend.json
+  PRERELEASE_CONFIG_FILE_BACKEND: .github/releases/release-please-config-prerelease-backend.json
+  PRERELEASE_MANIFEST_FILE_BACKEND: .github/releases/.release-please-manifest-prerelease-backend.json
+  RELEASE_CONFIG_FILE_FRONTEND: .github/releases/release-please-config-release-frontend.json
+  RELEASE_MANIFEST_FILE_FRONTEND: .github/releases/.release-please-manifest-frontend.json
+  PRERELEASE_CONFIG_FILE_FRONTEND: .github/releases/release-please-config-prerelease-frontend.json
+  PRERELEASE_MANIFEST_FILE_FRONTEND: .github/releases/.release-please-manifest-prerelease-frontend.json
   ENABLE_PRERELEASE: true
   # The chart lives at the repository root as `helm/`; CHART_NAME is the
   # directory under CHARTS_DIR, while the published OCI artifact is named from
@@ -60,10 +73,14 @@ jobs:
       AUTOMERGE_RELEASE: ${{ env.AUTOMERGE_RELEASE }}
       PRERELEASE_BRANCH: ${{ env.PRERELEASE_BRANCH }}
       RELEASE_BRANCH: ${{ env.RELEASE_BRANCH }}
-      RELEASE_CONFIG_FILE: ${{ env.RELEASE_CONFIG_FILE }}
-      RELEASE_MANIFEST_FILE: ${{ env.RELEASE_MANIFEST_FILE }}
-      PRERELEASE_CONFIG_FILE: ${{ env.PRERELEASE_CONFIG_FILE }}
-      PRERELEASE_MANIFEST_FILE: ${{ env.PRERELEASE_MANIFEST_FILE }}
+      RELEASE_CONFIG_FILE_BACKEND: ${{ env.RELEASE_CONFIG_FILE_BACKEND }}
+      RELEASE_MANIFEST_FILE_BACKEND: ${{ env.RELEASE_MANIFEST_FILE_BACKEND }}
+      PRERELEASE_CONFIG_FILE_BACKEND: ${{ env.PRERELEASE_CONFIG_FILE_BACKEND }}
+      PRERELEASE_MANIFEST_FILE_BACKEND: ${{ env.PRERELEASE_MANIFEST_FILE_BACKEND }}
+      RELEASE_CONFIG_FILE_FRONTEND: ${{ env.RELEASE_CONFIG_FILE_FRONTEND }}
+      RELEASE_MANIFEST_FILE_FRONTEND: ${{ env.RELEASE_MANIFEST_FILE_FRONTEND }}
+      PRERELEASE_CONFIG_FILE_FRONTEND: ${{ env.PRERELEASE_CONFIG_FILE_FRONTEND }}
+      PRERELEASE_MANIFEST_FILE_FRONTEND: ${{ env.PRERELEASE_MANIFEST_FILE_FRONTEND }}
       ENABLE_PRERELEASE: ${{ env.ENABLE_PRERELEASE }}
       CHARTS_DIR: ${{ env.CHARTS_DIR }}
       CHART_NAME: ${{ env.CHART_NAME }}
@@ -80,7 +97,7 @@ jobs:
         # references. See the matching note in ci.yml.
         run: echo "IMAGE_BASE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
-  release:
+  release-backend:
     uses: dnum-mi/fabnum-cicd/.github/workflows/release-app.yml@v0
     needs:
       - expose-vars
@@ -94,10 +111,10 @@ jobs:
       AUTOMERGE_RELEASE: ${{ needs.expose-vars.outputs.AUTOMERGE_RELEASE == 'true' }}
       PRERELEASE_BRANCH: ${{ needs.expose-vars.outputs.PRERELEASE_BRANCH }}
       RELEASE_BRANCH: ${{ needs.expose-vars.outputs.RELEASE_BRANCH }}
-      RELEASE_CONFIG_FILE: ${{ needs.expose-vars.outputs.RELEASE_CONFIG_FILE }}
-      RELEASE_MANIFEST_FILE: ${{ needs.expose-vars.outputs.RELEASE_MANIFEST_FILE }}
-      PRERELEASE_CONFIG_FILE: ${{ needs.expose-vars.outputs.PRERELEASE_CONFIG_FILE }}
-      PRERELEASE_MANIFEST_FILE: ${{ needs.expose-vars.outputs.PRERELEASE_MANIFEST_FILE }}
+      RELEASE_CONFIG_FILE: ${{ needs.expose-vars.outputs.RELEASE_CONFIG_FILE_BACKEND }}
+      RELEASE_MANIFEST_FILE: ${{ needs.expose-vars.outputs.RELEASE_MANIFEST_FILE_BACKEND }}
+      PRERELEASE_CONFIG_FILE: ${{ needs.expose-vars.outputs.PRERELEASE_CONFIG_FILE_BACKEND }}
+      PRERELEASE_MANIFEST_FILE: ${{ needs.expose-vars.outputs.PRERELEASE_MANIFEST_FILE_BACKEND }}
       ENABLE_PRERELEASE: ${{ needs.expose-vars.outputs.ENABLE_PRERELEASE == 'true' }}
     # App token: release-please then pushes its release pull request as the
     # App instead of GITHUB_TOKEN, so that pull request finally triggers
@@ -116,40 +133,44 @@ jobs:
       APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 
-  build-docker:
+  release-frontend:
+    uses: dnum-mi/fabnum-cicd/.github/workflows/release-app.yml@v0
+    needs:
+      - expose-vars
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+    with:
+      TAG_MAJOR_AND_MINOR: ${{ needs.expose-vars.outputs.TAG_MAJOR_AND_MINOR == 'true' }}
+      AUTOMERGE_PRERELEASE: ${{ needs.expose-vars.outputs.AUTOMERGE_PRERELEASE == 'true' }}
+      AUTOMERGE_RELEASE: ${{ needs.expose-vars.outputs.AUTOMERGE_RELEASE == 'true' }}
+      PRERELEASE_BRANCH: ${{ needs.expose-vars.outputs.PRERELEASE_BRANCH }}
+      RELEASE_BRANCH: ${{ needs.expose-vars.outputs.RELEASE_BRANCH }}
+      RELEASE_CONFIG_FILE: ${{ needs.expose-vars.outputs.RELEASE_CONFIG_FILE_FRONTEND }}
+      RELEASE_MANIFEST_FILE: ${{ needs.expose-vars.outputs.RELEASE_MANIFEST_FILE_FRONTEND }}
+      PRERELEASE_CONFIG_FILE: ${{ needs.expose-vars.outputs.PRERELEASE_CONFIG_FILE_FRONTEND }}
+      PRERELEASE_MANIFEST_FILE: ${{ needs.expose-vars.outputs.PRERELEASE_MANIFEST_FILE_FRONTEND }}
+      ENABLE_PRERELEASE: ${{ needs.expose-vars.outputs.ENABLE_PRERELEASE == 'true' }}
+    secrets:
+      APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+
+  build-docker-backend:
     uses: dnum-mi/fabnum-cicd/.github/workflows/build-docker.yml@v0
     needs:
       - expose-vars
-      - release
-    if: ${{ needs.release.outputs.release-created == 'true' }}
+      - release-backend
+    if: ${{ needs.release-backend.outputs.release-created == 'true' }}
     permissions:
       packages: write
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          # Both server images build from the repository root, and both must name
-          # their target: the last stage of each Dockerfile is `test`, so an
-          # untargeted build would publish the test image.
-          - name: api
-            context: .
-            dockerfile: apps/backend/Dockerfile
-            target: builder
-          - name: worker
-            context: .
-            dockerfile: apps/worker/Dockerfile
-            target: builder
-          - name: frontend
-            context: apps/client
-            dockerfile: apps/client/Dockerfile
-            target: prod
     with:
-      IMAGE_NAME: ${{ needs.expose-vars.outputs.IMAGE_BASE }}/${{ matrix.service.name }}
-      IMAGE_TAG: ${{ needs.release.outputs.version }}
-      IMAGE_CONTEXT: ${{ matrix.service.context }}
-      IMAGE_DOCKERFILE: ${{ matrix.service.dockerfile }}
-      IMAGE_TARGET: ${{ matrix.service.target }}
+      IMAGE_NAME: ${{ needs.expose-vars.outputs.IMAGE_BASE }}/api
+      IMAGE_TAG: ${{ needs.release-backend.outputs.version }}
+      IMAGE_CONTEXT: apps/backend
+      IMAGE_DOCKERFILE: apps/backend/Dockerfile
+      IMAGE_TARGET: production
       BUILD_AMD64: ${{ needs.expose-vars.outputs.BUILD_AMD64 == 'true' }}
       BUILD_ARM64: ${{ needs.expose-vars.outputs.BUILD_ARM64 == 'true' }}
       LATEST_TAG: ${{ needs.expose-vars.outputs.LATEST_TAG == 'true' }}
@@ -159,17 +180,55 @@ jobs:
       CACHE: true
       CACHE_MODE: min
       BUILD_ARGS: |
-        APP_VERSION=${{ needs.release.outputs.version }}
+        APP_VERSION=${{ needs.release-backend.outputs.version }}
     # See the matching note in ci.yml: ghcr.io is authenticated with the job's
     # own GITHUB_TOKEN, so there is no secret to pass.
 
+  build-docker-frontend:
+    uses: dnum-mi/fabnum-cicd/.github/workflows/build-docker.yml@v0
+    needs:
+      - expose-vars
+      - release-frontend
+    if: ${{ needs.release-frontend.outputs.release-created == 'true' }}
+    permissions:
+      packages: write
+      contents: read
+    with:
+      IMAGE_NAME: ${{ needs.expose-vars.outputs.IMAGE_BASE }}/frontend
+      IMAGE_TAG: ${{ needs.release-frontend.outputs.version }}
+      IMAGE_CONTEXT: apps/frontend
+      IMAGE_DOCKERFILE: apps/frontend/Dockerfile
+      IMAGE_TARGET: production
+      BUILD_AMD64: ${{ needs.expose-vars.outputs.BUILD_AMD64 == 'true' }}
+      BUILD_ARM64: ${{ needs.expose-vars.outputs.BUILD_ARM64 == 'true' }}
+      LATEST_TAG: ${{ needs.expose-vars.outputs.LATEST_TAG == 'true' }}
+      USE_QEMU: ${{ needs.expose-vars.outputs.USE_QEMU == 'true' }}
+      TAG_MAJOR_AND_MINOR: ${{ needs.expose-vars.outputs.TAG_MAJOR_AND_MINOR == 'true' && needs.expose-vars.outputs.LATEST_TAG == 'true' }}
+      TAG_SHORT_SHA: ${{ needs.expose-vars.outputs.TAG_SHORT_SHA == 'true' }}
+      CACHE: true
+      CACHE_MODE: min
+      BUILD_ARGS: |
+        APP_VERSION=${{ needs.release-frontend.outputs.version }}
+
+  # --- Ce qui suit (chart Helm, sync CPiN, sync de la branche de prérelease) ---
+  # reste construit autour d'UNE seule version d'application (un seul chart
+  # "MesDocuments" au niveau du repo). Avec deux releases indépendantes, il n'y
+  # a plus de version unique évidente à lui passer : ce qui suit est un choix
+  # provisoire (préférer la version backend si les deux sortent le même run,
+  # sinon celle qui a effectivement été créée) et non une décision définitive -
+  # à retravailler selon la façon dont values.yaml référence les tags d'image.
   bump-chart:
     uses: dnum-mi/fabnum-cicd/.github/workflows/update-helm-chart.yml@v0
     needs:
       - expose-vars
-      - release
-      - build-docker
-    if: ${{ needs.release.outputs.release-created == 'true' }}
+      - release-backend
+      - release-frontend
+      - build-docker-backend
+      - build-docker-frontend
+    if: |
+      always() &&
+      (needs.release-backend.outputs.release-created == 'true' || needs.release-frontend.outputs.release-created == 'true') &&
+      needs.build-docker-backend.result != 'failure' && needs.build-docker-frontend.result != 'failure'
     permissions:
       contents: write
       pull-requests: write
@@ -182,16 +241,7 @@ jobs:
       # UPGRADE_TYPE defaults to 'auto': level from the appVersion delta, rc
       # cycle vs release selected by the shape of APP_VERSION. The chart keeps
       # its own version line - a 0.19.12 app can ship as chart 0.1.1.
-      APP_VERSION: ${{ needs.release.outputs.version }}
-    # dev/staging/preprod's and main's branch rulesets both require a pull
-    # request for every push, with no exception for GITHUB_TOKEN - only a
-    # GitHub App can be named in a bypass list. Supplying these secrets
-    # switches this push (and only this push - see update-helm-chart.yml)
-    # from GITHUB_TOKEN to the App token, which is what lets it clear that
-    # rule on both. That trade also lifts GITHUB_TOKEN's usual guarantee that
-    # this push cannot retrigger this very pipeline; safe here because a
-    # re-triggered run finds nothing new to release (release-please is
-    # idempotent) and stops at `release`.
+      APP_VERSION: ${{ needs.release-backend.outputs.release-created == 'true' && needs.release-backend.outputs.version || needs.release-frontend.outputs.version }}
     secrets:
       APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
@@ -200,9 +250,10 @@ jobs:
     name: Sync CPiN after release
     uses: dnum-mi/fabnum-cicd/.github/workflows/sync-cpin.yml@v0
     needs:
-      - release
+      - release-backend
+      - release-frontend
       - bump-chart
-    if: ${{ needs.release.outputs.release-created == 'true' }}
+    if: ${{ needs.release-backend.outputs.release-created == 'true' || needs.release-frontend.outputs.release-created == 'true' }}
     # The only automatic CPiN sync left: dso-auto-sync.yaml is manual-only
     # (see that file) precisely because this job already covers every push
     # that matters - and does so correctly, since it only fires once
@@ -222,10 +273,12 @@ jobs:
     uses: dnum-mi/fabnum-cicd/.github/workflows/release-helm-local.yml@v0
     needs:
       - expose-vars
-      - release
-      - build-docker
+      - release-backend
+      - release-frontend
+      - build-docker-backend
+      - build-docker-frontend
       - bump-chart
-    if: ${{ needs.release.outputs.release-created == 'true' }}
+    if: ${{ needs.release-backend.outputs.release-created == 'true' || needs.release-frontend.outputs.release-created == 'true' }}
     permissions:
       contents: read
       packages: write
@@ -244,11 +297,11 @@ jobs:
   # its next versions from a pre-release state and conflicts with main on the
   # following promotion.
   #
-  # `needs:` lists exactly the jobs that COMMIT to main - release and
+  # `needs:` lists exactly the jobs that COMMIT to main - both release jobs and
   # bump-chart - and nothing else. build-docker and release-chart commit
   # nothing, and listing them would only let a failed build or a failed publish
   # skip the sync, leaving dev stale for no reason. Ordering still holds:
-  # bump-chart already needs build-docker.
+  # bump-chart already needs the build-docker jobs.
   #
   # release-app.yml asserts the result on the next dev run, so a missing entry
   # here fails loudly there rather than silently producing a version below what
@@ -257,9 +310,12 @@ jobs:
     uses: dnum-mi/fabnum-cicd/.github/workflows/sync-prerelease-branch.yml@v0
     needs:
       - expose-vars
-      - release
+      - release-backend
+      - release-frontend
       - bump-chart
-    if: ${{ github.ref_name == needs.expose-vars.outputs.RELEASE_BRANCH && needs.release.outputs.release-created == 'true' }}
+    if: |
+      github.ref_name == needs.expose-vars.outputs.RELEASE_BRANCH &&
+      (needs.release-backend.outputs.release-created == 'true' || needs.release-frontend.outputs.release-created == 'true')
     permissions:
       contents: write
     with:

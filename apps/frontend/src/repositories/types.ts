@@ -37,6 +37,10 @@ export interface DocumentRepository {
   toggleFavorite(id: string): Promise<DocumentFile>
   askQuestion(request: QueryRequest): Promise<QueryResponse>
   upload(folderId: string, file: File): Promise<DocumentFile>
+  // A URL, not a fetch: the browser's own download machinery (cookie auth,
+  // Content-Disposition filename, progress UI) handles it better than we
+  // could by fetching a blob ourselves.
+  getDownloadUrl(id: string): string
 }
 
 export interface SearchRepository {

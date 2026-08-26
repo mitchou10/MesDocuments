@@ -57,6 +57,16 @@ watch(
   { immediate: true },
 )
 
+function downloadFile() {
+  if (!file.value) return
+  const link = document.createElement('a')
+  link.href = documentRepository.getDownloadUrl(file.value.id)
+  link.download = file.value.name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 function goBack() {
   if (file.value) router.push({ name: 'documents', params: { folderId: file.value.folderId } })
   else router.push({ name: 'documents' })
@@ -110,7 +120,7 @@ const fileNames = computed(() => (file.value ? { [file.value.id]: file.value.nam
           </p>
         </div>
         <div class="flex gap-2">
-          <button type="button" class="fr-btn fr-btn--secondary fr-icon-download-line fr-btn--icon-left">Télécharger</button>
+          <button type="button" class="fr-btn fr-btn--secondary fr-icon-download-line fr-btn--icon-left" @click="downloadFile">Télécharger</button>
           <button type="button" class="fr-btn fr-btn--secondary fr-icon-share-line fr-btn--icon-left" @click="shareOpened = true">Partager</button>
         </div>
       </div>

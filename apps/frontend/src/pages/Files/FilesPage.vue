@@ -73,7 +73,14 @@ async function onFolderAction(action: string, folder: Folder) {
 
 async function onFileAction(action: string, file: DocumentFile) {
   if (action === 'open') router.push({ name: 'file', params: { fileId: file.id } })
-  else if (action === 'favorite') {
+  else if (action === 'download') {
+    const link = document.createElement('a')
+    link.href = documentRepository.getDownloadUrl(file.id)
+    link.download = file.name
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } else if (action === 'favorite') {
     await documentRepository.toggleFavorite(file.id)
     reload()
   } else if (action === 'rename') {

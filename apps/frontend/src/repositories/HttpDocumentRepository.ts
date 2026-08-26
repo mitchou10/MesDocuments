@@ -132,6 +132,10 @@ export class HttpDocumentRepository implements DocumentRepository {
     throw new Error("L'assistant n'est pas encore disponible côté backend.")
   }
 
+  getDownloadUrl(id: string): string {
+    return `${FILES_BASE_URL}/files/${id}/download`
+  }
+
   async upload(folderId: string, file: File): Promise<DocumentFile> {
     const formData = new FormData()
     formData.append('file', file)

@@ -70,9 +70,18 @@ class FolderService:
         folder = await self.get_folder(folder_id)
         return await self._repository.rename(folder, name)
 
-    async def delete_folder(self, folder_id: uuid.UUID) -> None:
+    async def delete_folder(self, folder_id: uuid.UUID) -> list[uuid.UUID]:
+        """Soft-deletes the folder and every descendant folder at any depth.
+
+        Returns every affected folder id (including `folder_id` itself) so
+        the caller can cascade to whatever lives inside them (files) - this
+        service has no business knowing about files.
+        """
         folder = await self.get_folder(folder_id)
-        await self._repository.soft_delete(folder, deleted_at=datetime.now(UTC))
+        descendant_ids = await self._repository.get_descendant_ids(folder_id)
+        all_ids = [folder.id, *descendant_ids]
+        await self._repository.soft_delete_many(all_ids, deleted_at=datetime.now(UTC))
+        return all_ids
 
     @staticmethod
     def _validate_name(name: str) -> str:

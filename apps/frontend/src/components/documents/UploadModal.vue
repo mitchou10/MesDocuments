@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { documentRepository } from '@/repositories'
 import { formatBytes } from '@/utils/format'
 
-type UploadStatus = 'selected' | 'uploading' | 'done' | 'error' | 'processing'
+type UploadStatus = 'selected' | 'uploading' | 'done' | 'error'
 
 interface UploadItem {
   id: string
   name: string
   sizeBytes: number
   status: UploadStatus
-  progress: number
-  processingSteps: { label: string; done: boolean }[]
+  errorMessage?: string
 }
 
-const props = defineProps<{ opened: boolean }>()
+const props = defineProps<{ opened: boolean; folderId: string | null }>()
 const emit = defineEmits<{ (e: 'update:opened', value: boolean): void; (e: 'imported'): void }>()
 
 const items = ref<UploadItem[]>([])
@@ -43,48 +43,30 @@ function onPick(event: Event) {
 }
 
 function addFiles(files: FileList) {
+  if (!props.folderId) return
+  const folderId = props.folderId
   for (const file of Array.from(files)) {
     const item: UploadItem = {
       id: `${file.name}-${Date.now()}-${Math.random()}`,
       name: file.name,
       sizeBytes: file.size,
       status: 'selected',
-      progress: 0,
-      processingSteps: [
-        { label: 'Texte extrait', done: false },
-        { label: 'Résumé généré', done: false },
-        { label: 'Indexation terminée', done: false },
-      ],
     }
     items.value.push(item)
-    simulateUpload(item)
+    upload(item, folderId, file)
   }
 }
 
-function simulateUpload(item: UploadItem) {
+async function upload(item: UploadItem, folderId: string, file: File) {
   item.status = 'uploading'
-  const interval = setInterval(() => {
-    item.progress = Math.min(100, item.progress + 10 + Math.random() * 15)
-    if (item.progress >= 100) {
-      clearInterval(interval)
-      item.status = 'processing'
-      simulateProcessing(item)
-    }
-  }, 250)
-}
-
-function simulateProcessing(item: UploadItem) {
-  let stepIndex = 0
-  const interval = setInterval(() => {
-    if (stepIndex < item.processingSteps.length) {
-      item.processingSteps[stepIndex].done = true
-      stepIndex += 1
-    } else {
-      clearInterval(interval)
-      item.status = 'done'
-      emit('imported')
-    }
-  }, 500)
+  try {
+    await documentRepository.upload(folderId, file)
+    item.status = 'done'
+    emit('imported')
+  } catch (error) {
+    item.status = 'error'
+    item.errorMessage = error instanceof Error ? error.message : "Erreur lors de l'import"
+  }
 }
 </script>
 
@@ -105,8 +87,19 @@ function simulateProcessing(item: UploadItem) {
     >
       <p class="fr-mb-2w">Déposez vos fichiers ici</p>
       <p class="fr-text--sm text-[var(--text-mention-grey)] fr-mb-2w">ou</p>
-      <button type="button" class="fr-btn fr-btn--secondary" @click="fileInput?.click()">Choisir des fichiers</button>
-      <input ref="fileInput" type="file" multiple class="sr-only" @change="onPick" />
+      <button
+        type="button"
+        class="fr-btn fr-btn--secondary"
+        :disabled="!folderId"
+        @click="fileInput?.click()"
+      >
+        Choisir des fichiers
+      </button>
+      <label for="upload-modal-input" class="sr-only">Fichiers à importer</label>
+      <input id="upload-modal-input" ref="fileInput" type="file" multiple class="sr-only" @change="onPick" />
+      <p v-if="!folderId" class="fr-text--sm text-[var(--text-mention-grey)] fr-mt-2w fr-mb-0">
+        Ouvrez un dossier avant d'importer des documents.
+      </p>
     </div>
 
     <ul v-if="items.length" class="fr-mt-3w flex flex-col gap-3">
@@ -116,29 +109,16 @@ function simulateProcessing(item: UploadItem) {
           <span class="fr-text--sm text-[var(--text-mention-grey)] shrink-0">{{ formatBytes(item.sizeBytes) }}</span>
         </div>
 
-        <div v-if="item.status === 'uploading'" class="fr-mt-1w">
-          <div class="h-1.5 rounded-full bg-[var(--background-alt-grey)] overflow-hidden">
-            <div class="h-full bg-[var(--background-flat-blue-france)]" :style="{ width: `${item.progress}%` }" />
-          </div>
-          <p class="fr-text--xs fr-mb-0 fr-mt-1v">{{ Math.round(item.progress) }} %</p>
-        </div>
-
-        <div v-else-if="item.status === 'processing'" class="fr-mt-1w">
-          <p class="fr-text--sm fr-mb-1v">Analyse du document</p>
-          <ul class="flex flex-col gap-1">
-            <li v-for="step in item.processingSteps" :key="step.label" class="fr-text--sm fr-mb-0 flex items-center gap-2">
-              <span :class="step.done ? 'fr-icon-checkbox-circle-fill text-[var(--text-default-success)]' : 'fr-icon-refresh-line animate-spin'" aria-hidden="true" />
-              {{ step.label }}
-            </li>
-          </ul>
-        </div>
+        <p v-if="item.status === 'uploading'" class="fr-text--sm fr-mb-0 fr-mt-1w flex items-center gap-2">
+          <span class="fr-icon-refresh-line animate-spin" aria-hidden="true" /> Envoi en cours…
+        </p>
 
         <p v-else-if="item.status === 'done'" class="fr-text--sm fr-mb-0 fr-mt-1w text-[var(--text-default-success)] flex items-center gap-2">
           <span class="fr-icon-checkbox-circle-fill" aria-hidden="true" /> Upload terminé
         </p>
 
         <p v-else-if="item.status === 'error'" class="fr-text--sm fr-mb-0 fr-mt-1w text-[var(--text-default-error)] flex items-center gap-2">
-          <span class="fr-icon-error-warning-fill" aria-hidden="true" /> Erreur lors de l'import
+          <span class="fr-icon-error-warning-fill" aria-hidden="true" /> {{ item.errorMessage ?? "Erreur lors de l'import" }}
         </p>
       </li>
     </ul>

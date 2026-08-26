@@ -35,6 +35,15 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://mesdocuments:mesdocuments@localhost:5432/mesdocuments"
 
+    # File bytes are proxied through the backend (chunked, streamed - see
+    # app/services/storage.py), never served directly from MinIO to the
+    # browser, so there's no public/internal endpoint split to worry about
+    # here (unlike Keycloak).
+    minio_endpoint: str = "http://localhost:9000"
+    minio_access_key: str = "mesdocuments"
+    minio_secret_key: str = "mesdocuments123"
+    minio_bucket: str = "mesdocuments-files"
+
     @property
     def keycloak_jwks_url(self) -> str:
         base = self.keycloak_jwks_base_url or self.keycloak_issuer

@@ -49,6 +49,25 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: mesdocuments
+      MINIO_ROOT_PASSWORD: mesdocuments123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      # No curl/wget in this image; a bare TCP connect via bash's /dev/tcp is
+      # the cheapest check that doesn't need an extra tool.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     command: start-dev --import-realm
@@ -87,10 +106,16 @@ services:
       MESDOCUMENTS_FRONTEND_BASE_URL: http://localhost:5173
       MESDOCUMENTS_CORS_ORIGINS: '["http://localhost:5173"]'
       MESDOCUMENTS_DATABASE_URL: postgresql+asyncpg://mesdocuments:mesdocuments@postgres:5432/mesdocuments
+      MESDOCUMENTS_MINIO_ENDPOINT: http://minio:9000
+      MESDOCUMENTS_MINIO_ACCESS_KEY: mesdocuments
+      MESDOCUMENTS_MINIO_SECRET_KEY: mesdocuments123
+      MESDOCUMENTS_MINIO_BUCKET: mesdocuments-files
     depends_on:
       keycloak:
         condition: service_started
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     develop:
       watch:
@@ -104,3 +129,4 @@ services:
 
 volumes:
   postgres-data:
+  minio-data:

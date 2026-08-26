@@ -61,6 +61,30 @@ class FolderRepository:
         await self._session.flush()
         await self._session.refresh(folder)
 
+    async def get_descendant_ids(self, folder_id: uuid.UUID) -> list[uuid.UUID]:
+        """Every descendant folder id at any depth (not including `folder_id`
+        itself), via a recursive CTE - one round trip regardless of depth."""
+        base = select(Folder.id, Folder.parent_id).where(Folder.parent_id == folder_id).cte(recursive=True)
+        descendants = base.union_all(
+            select(Folder.id, Folder.parent_id).join(base, Folder.parent_id == base.c.id)
+        )
+        result = await self._session.execute(select(descendants.c.id))
+        return list(result.scalars().all())
+
+    async def soft_delete_many(self, folder_ids: list[uuid.UUID], *, deleted_at: datetime) -> None:
+        if not folder_ids:
+            return
+        # Loaded and mutated one by one - not a bulk Core UPDATE - so this
+        # goes through the normal unit-of-work: any of these folders already
+        # held elsewhere in this session (the identity map returns the same
+        # Python object) sees `deleted_at` update immediately, no expiry or
+        # refresh dance required.
+        stmt = select(Folder).where(Folder.id.in_(folder_ids), Folder.deleted_at.is_(None))
+        result = await self._session.execute(stmt)
+        for folder in result.scalars().all():
+            folder.deleted_at = deleted_at
+        await self._session.flush()
+
     async def _paginate(self, condition: ColumnElement[bool], page: PageParams) -> Page[Folder]:
         not_deleted = Folder.deleted_at.is_(None)
 

@@ -39,3 +39,7 @@ class FavoriteRead(BaseModel):
     resource_type: ResourceType
     resource_id: uuid.UUID
     created_at: datetime
+
+
+class FavoriteToggleResult(BaseModel):
+    favorited: bool

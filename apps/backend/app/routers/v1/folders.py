@@ -4,15 +4,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.enums import PermissionLevel
-from app.db.models.folders import Folder
 from app.db.models.users import User
 from app.db.session import get_db
 from app.dependencies.current_user import get_current_db_user
+from app.dependencies.files import get_file_service
 from app.dependencies.folders import get_folder_permission_service, get_folder_service
+from app.routers.v1._folder_access import get_folder_or_404, require_folder_access
 from app.schemas.folders import FolderCreate, FolderRead
 from app.schemas.pagination import PageOut, PageParams
-from app.services.folders import FolderNotFoundError, FolderService, InvalidFolderNameError
-from app.services.permissions import AccessDeniedError, FolderPermissionService
+from app.services.files import FileService
+from app.services.folders import FolderService, InvalidFolderNameError
+from app.services.permissions import FolderPermissionService
 
 router = APIRouter(prefix="/folders", tags=["folders"])
 
@@ -38,8 +40,8 @@ async def create_folder(
     permission_service: FolderPermissionService = Depends(get_folder_permission_service),
 ) -> FolderRead:
     if payload.parent_id is not None:
-        parent = await _get_folder_or_404(folder_service, payload.parent_id)
-        await _require_access(permission_service, current_user.id, parent, PermissionLevel.editor)
+        parent = await get_folder_or_404(folder_service, payload.parent_id)
+        await require_folder_access(permission_service, current_user.id, parent, PermissionLevel.editor)
 
     try:
         folder = await folder_service.create_folder(
@@ -59,8 +61,8 @@ async def get_folder(
     folder_service: FolderService = Depends(get_folder_service),
     permission_service: FolderPermissionService = Depends(get_folder_permission_service),
 ) -> FolderRead:
-    folder = await _get_folder_or_404(folder_service, folder_id)
-    await _require_access(permission_service, current_user.id, folder, PermissionLevel.reader)
+    folder = await get_folder_or_404(folder_service, folder_id)
+    await require_folder_access(permission_service, current_user.id, folder, PermissionLevel.reader)
     return FolderRead.model_validate(folder)
 
 
@@ -72,8 +74,8 @@ async def list_children(
     folder_service: FolderService = Depends(get_folder_service),
     permission_service: FolderPermissionService = Depends(get_folder_permission_service),
 ) -> PageOut[FolderRead]:
-    folder = await _get_folder_or_404(folder_service, folder_id)
-    await _require_access(permission_service, current_user.id, folder, PermissionLevel.reader)
+    folder = await get_folder_or_404(folder_service, folder_id)
+    await require_folder_access(permission_service, current_user.id, folder, PermissionLevel.reader)
 
     tree = await folder_service.get_children(folder_id, page)
     return PageOut.from_page(tree.subfolders, FolderRead)
@@ -88,8 +90,8 @@ async def rename_folder(
     folder_service: FolderService = Depends(get_folder_service),
     permission_service: FolderPermissionService = Depends(get_folder_permission_service),
 ) -> FolderRead:
-    folder = await _get_folder_or_404(folder_service, folder_id)
-    await _require_access(permission_service, current_user.id, folder, PermissionLevel.editor)
+    folder = await get_folder_or_404(folder_service, folder_id)
+    await require_folder_access(permission_service, current_user.id, folder, PermissionLevel.editor)
 
     try:
         folder = await folder_service.rename_folder(folder_id, payload.name)
@@ -106,26 +108,16 @@ async def delete_folder(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_db_user),
     folder_service: FolderService = Depends(get_folder_service),
+    file_service: FileService = Depends(get_file_service),
     permission_service: FolderPermissionService = Depends(get_folder_permission_service),
 ) -> None:
-    folder = await _get_folder_or_404(folder_service, folder_id)
-    await _require_access(permission_service, current_user.id, folder, PermissionLevel.editor)
+    folder = await get_folder_or_404(folder_service, folder_id)
+    await require_folder_access(permission_service, current_user.id, folder, PermissionLevel.editor)
 
-    await folder_service.delete_folder(folder_id)
+    # Cascade: the folder itself plus every descendant folder, then every
+    # file inside any of them (which also purges their storage - see
+    # FileService.delete_file). Nothing under a deleted folder stays visible
+    # or keeps its bytes around.
+    affected_folder_ids = await folder_service.delete_folder(folder_id)
+    await file_service.delete_files_in_folders(affected_folder_ids)
     await session.commit()
-
-
-async def _get_folder_or_404(folder_service: FolderService, folder_id: uuid.UUID) -> Folder:
-    try:
-        return await folder_service.get_folder(folder_id)
-    except FolderNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found") from exc
-
-
-async def _require_access(
-    permission_service: FolderPermissionService, user_id: uuid.UUID, folder: Folder, minimum: PermissionLevel
-) -> None:
-    try:
-        await permission_service.require_access(user_id, folder, minimum)
-    except AccessDeniedError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied") from exc

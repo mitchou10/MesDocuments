@@ -55,6 +55,10 @@ class FileRead(BaseModel):
     deleted_at: datetime | None
 
 
+class FileRename(BaseModel):
+    name: str
+
+
 class FileVersionCreate(BaseModel):
     storage_key: str
     content_hash: str

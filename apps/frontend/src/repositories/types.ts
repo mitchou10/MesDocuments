@@ -7,6 +7,7 @@ import type {
   Folder,
   FolderChildren,
   Permission,
+  PrincipalRef,
   QueryRequest,
   QueryResponse,
   SearchRequest,
@@ -35,6 +36,7 @@ export interface DocumentRepository {
   remove(id: string): Promise<void>
   toggleFavorite(id: string): Promise<DocumentFile>
   askQuestion(request: QueryRequest): Promise<QueryResponse>
+  upload(folderId: string, file: File): Promise<DocumentFile>
 }
 
 export interface SearchRepository {
@@ -42,9 +44,13 @@ export interface SearchRepository {
 }
 
 export interface SharingRepository {
-  getShares(resourceId: string): Promise<Share[]>
+  getShares(resourceId: string, resourceType: 'file' | 'folder'): Promise<Share[]>
   addShare(share: Omit<Share, 'id' | 'createdAt'>): Promise<Share>
   removeShare(shareId: string): Promise<void>
+}
+
+export interface UserRepository {
+  search(query: string): Promise<PrincipalRef[]>
 }
 
 export interface PermissionRepository {

@@ -154,7 +154,15 @@ const fileNames = computed<Record<string, string>>(() =>
         </div>
         <div class="flex gap-2">
           <button type="button" class="fr-btn fr-icon-add-line fr-btn--icon-left" @click="newFolderOpened = true">Nouveau</button>
-          <button type="button" class="fr-btn fr-btn--secondary fr-icon-upload-line fr-btn--icon-left" @click="uploadOpened = true">Importer</button>
+          <button
+            type="button"
+            class="fr-btn fr-btn--secondary fr-icon-upload-line fr-btn--icon-left"
+            :disabled="!folderId"
+            :title="folderId ? undefined : 'Ouvrez un dossier avant d\'importer des documents'"
+            @click="uploadOpened = true"
+          >
+            Importer
+          </button>
         </div>
       </div>
 
@@ -188,7 +196,7 @@ const fileNames = computed<Record<string, string>>(() =>
     </template>
 
     <NewFolderModal v-model:opened="newFolderOpened" @create="createFolder" />
-    <UploadModal v-model:opened="uploadOpened" @imported="reload" />
+    <UploadModal v-model:opened="uploadOpened" :folder-id="folderId" @imported="reload" />
     <ShareModal
       v-if="shareTarget"
       v-model:opened="shareOpened"

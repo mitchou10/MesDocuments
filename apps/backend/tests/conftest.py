@@ -30,11 +30,16 @@ ISSUER = "http://localhost:8080/realms/mesdocuments"
 AUDIENCE = "mesdocuments-backend"
 COOKIE_NAME = "mesdocuments_session"
 
+# Same reasoning as TEST_DATABASE_URL: a dedicated bucket, not the dev one -
+# run `docker compose up -d minio` before running storage-backed tests.
+MINIO_TEST_BUCKET = "mesdocuments-test"
+
 
 @pytest.fixture(autouse=True)
 def _settings_env(monkeypatch):
     monkeypatch.setenv("MESDOCUMENTS_KEYCLOAK_ISSUER", ISSUER)
     monkeypatch.setenv("MESDOCUMENTS_KEYCLOAK_AUDIENCE", AUDIENCE)
+    monkeypatch.setenv("MESDOCUMENTS_MINIO_BUCKET", MINIO_TEST_BUCKET)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -133,3 +138,12 @@ async def make_user(db_session: AsyncSession):
         return user
 
     return _make_user
+
+
+@pytest.fixture
+async def storage_service():
+    from app.services.storage import StorageService
+
+    service = StorageService(get_settings())
+    await service.ensure_bucket()
+    return service

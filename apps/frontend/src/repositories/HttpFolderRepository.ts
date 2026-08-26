@@ -1,4 +1,4 @@
-import type { Folder, FolderChildren } from '@/types'
+import type { DocumentFile, FileKind, Folder, FolderChildren } from '@/types'
 import type { FolderRepository } from './types'
 
 const BASE_URL = '/api/v1/folders'
@@ -11,6 +11,43 @@ interface FolderDto {
   created_at: string
   updated_at: string
   deleted_at: string | null
+}
+
+interface FileDto {
+  id: string
+  name: string
+  kind: FileKind
+  mime_type: string
+  size_bytes: number
+  folder_id: string
+  owner_id: string
+  page_count: number | null
+  duration_ms: number | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+// The file's "Emplacement" is the folder it lives in, inclusive - unlike a
+// folder's own breadcrumb, which stops at its parent (see mapFolderLight).
+// The containing folder's path is already known here, so this needs no
+// extra requests.
+function mapFile(dto: FileDto, folderPath: string[]): DocumentFile {
+  return {
+    id: dto.id,
+    name: dto.name,
+    kind: dto.kind,
+    mimeType: dto.mime_type,
+    sizeBytes: dto.size_bytes,
+    folderId: dto.folder_id,
+    path: folderPath,
+    createdAt: dto.created_at,
+    updatedAt: dto.updated_at,
+    isFavorite: false,
+    ownerId: dto.owner_id,
+    pageCount: dto.page_count ?? undefined,
+    durationMs: dto.duration_ms ?? undefined,
+  }
 }
 
 interface PageDto<T> {
@@ -63,20 +100,24 @@ export class HttpFolderRepository implements FolderRepository {
   async getChildren(id: string | null): Promise<FolderChildren> {
     if (id === null) {
       const page = await apiFetch<PageDto<FolderDto>>(`?limit=${LIST_LIMIT}`)
+      // No root-level files: every file belongs to a real folder on the
+      // backend, so "Mes documents" only ever lists subfolders.
       return { folder: null, subfolders: page.items.map(mapFolderLight), files: [] }
     }
 
-    const [folderDto, childrenPage] = await Promise.all([
+    const [folderDto, childrenPage, filesPage] = await Promise.all([
       apiFetch<FolderDto>(`/${id}`),
       apiFetch<PageDto<FolderDto>>(`/${id}/children?limit=${LIST_LIMIT}`),
+      apiFetch<PageDto<FileDto>>(`/${id}/files?limit=${LIST_LIMIT}`),
     ])
 
+    const folder = await this.mapFolderWithPath(folderDto)
+    const filePath = [...folder.path, folder.name]
+
     return {
-      folder: await this.mapFolderWithPath(folderDto),
+      folder,
       subfolders: childrenPage.items.map(mapFolderLight),
-      // No file endpoints on the backend yet - folders are real, files stay
-      // mocked (and disconnected from real folder ids) until that lands.
-      files: [],
+      files: filesPage.items.map((dto) => mapFile(dto, filePath)),
     }
   }
 

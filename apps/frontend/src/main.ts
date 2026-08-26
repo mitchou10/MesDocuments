@@ -9,11 +9,18 @@ import { createApp } from 'vue'
 
 import App from './App.vue'
 import router from './router'
+import { useAuthStore } from './stores/auth'
 
 const app = createApp(App)
 
 app.use(createPinia())
-app.use(router)
 app.use(VueDsfr)
 
-app.mount('#app')
+// L'état d'authentification doit être connu AVANT d'installer le router : le
+// premier garde de navigation en dépend pour décider de rediriger vers
+// Keycloak ou de laisser passer.
+const authStore = useAuthStore()
+authStore.initialize().finally(() => {
+  app.use(router)
+  app.mount('#app')
+})

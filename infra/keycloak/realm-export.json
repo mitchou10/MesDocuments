@@ -1,0 +1,57 @@
+{
+  "realm": "mesdocuments",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 900,
+  "clients": [
+    {
+      "clientId": "mesdocuments-backend",
+      "name": "MesDocuments Backend (BFF)",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "secret": "dev-secret-change-me",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:5173/api/v1/auth/callback"],
+      "webOrigins": [],
+      "protocolMappers": [
+        {
+          "name": "self-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "mesdocuments-backend",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Utilisateur standard MesDocuments" },
+      { "name": "admin", "description": "Administrateur MesDocuments" }
+    ]
+  },
+  "users": [
+    {
+      "username": "camille.bernard",
+      "enabled": true,
+      "firstName": "Camille",
+      "lastName": "Bernard",
+      "email": "camille.bernard@example.fr",
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "camille", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    }
+  ]
+}

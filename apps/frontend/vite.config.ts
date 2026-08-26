@@ -18,5 +18,14 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
+    proxy: {
+      // Le backend gère tout le flow OAuth (login/callback/logout) et pose un
+      // cookie de session : en proxifiant ici, le navigateur ne voit qu'une
+      // seule origine (localhost:5173), donc le cookie reste same-site.
+      '/api': {
+        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })

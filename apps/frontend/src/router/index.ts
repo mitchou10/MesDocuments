@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -48,6 +49,17 @@ const router = createRouter({
       component: () => import('@/pages/NotFound/NotFoundPage.vue'),
     },
   ],
+})
+
+// L'authentification est déjà résolue avant que le router ne soit installé
+// (voir main.ts) : ce garde n'a donc qu'à lire l'état, jamais à l'attendre.
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (!auth.isAuthenticated) {
+    auth.login(to.fullPath)
+    return false
+  }
+  return true
 })
 
 export default router

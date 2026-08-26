@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import ActionsMenu, { type ActionMenuItem } from '@/components/common/ActionsMenu.vue'
+import { folderActionItems } from '@/components/documents/folderActionItems'
 import type { DocumentFile, Folder } from '@/types'
 import { formatRelativeDate } from '@/utils/format'
 import { iconForFileKind, labelForFileKind } from '@/utils/fileIcon'
@@ -15,13 +16,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-const folderActions: ActionMenuItem[] = [
-  { key: 'open', label: 'Ouvrir', icon: 'fr-icon-folder-2-line' },
-  { key: 'rename', label: 'Renommer', icon: 'fr-icon-edit-line' },
-  { key: 'share', label: 'Partager', icon: 'fr-icon-share-line' },
-  { key: 'new-subfolder', label: 'Créer un sous-dossier', icon: 'fr-icon-add-circle-line' },
-  { key: 'delete', label: 'Supprimer', icon: 'fr-icon-delete-bin-line', danger: true },
-]
+const folderActions = folderActionItems
 
 const fileActions: ActionMenuItem[] = [
   { key: 'open', label: 'Ouvrir', icon: 'fr-icon-eye-line' },

@@ -3,10 +3,13 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LoadingState from '@/components/common/LoadingState.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ActionsMenu from '@/components/common/ActionsMenu.vue'
 import FolderBreadcrumb from '@/components/folders/FolderBreadcrumb.vue'
 import FileFolderTable from '@/components/documents/FileFolderTable.vue'
+import { currentFolderActionItems } from '@/components/documents/folderActionItems'
 import NewFolderModal from '@/components/folders/NewFolderModal.vue'
 import UploadModal from '@/components/documents/UploadModal.vue'
+import ShareModal from '@/components/sharing/ShareModal.vue'
 import QuestionBox from '@/components/agent/QuestionBox.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { documentRepository, folderRepository } from '@/repositories'
@@ -36,6 +39,12 @@ const sortedFiles = computed<DocumentFile[]>(() => {
 
 const newFolderOpened = ref(false)
 const uploadOpened = ref(false)
+const shareOpened = ref(false)
+const shareTarget = ref<Folder | null>(null)
+
+function onCurrentFolderAction(action: string) {
+  if (data.value?.folder) onFolderAction(action, data.value.folder)
+}
 
 async function onFolderAction(action: string, folder: Folder) {
   if (action === 'open') router.push({ name: 'documents', params: { folderId: folder.id } })
@@ -51,6 +60,9 @@ async function onFolderAction(action: string, folder: Folder) {
       await folderRepository.rename(folder.id, name)
       reload()
     }
+  } else if (action === 'share') {
+    shareTarget.value = folder
+    shareOpened.value = true
   } else if (action === 'delete') {
     if (window.confirm(`Supprimer le dossier "${folder.name}" ?`)) {
       await folderRepository.remove(folder.id)
@@ -131,7 +143,15 @@ const fileNames = computed<Record<string, string>>(() =>
       <FolderBreadcrumb v-if="data.folder" :folder="data.folder" />
 
       <div class="flex items-center justify-between flex-wrap gap-3">
-        <h1 class="fr-h3 fr-mb-0">{{ data.folder?.name ?? 'Mes documents' }}</h1>
+        <div class="flex items-center gap-2">
+          <h1 class="fr-h3 fr-mb-0">{{ data.folder?.name ?? 'Mes documents' }}</h1>
+          <ActionsMenu
+            v-if="data.folder"
+            :label="`Actions pour ${data.folder.name}`"
+            :items="currentFolderActionItems"
+            @select="onCurrentFolderAction"
+          />
+        </div>
         <div class="flex gap-2">
           <button type="button" class="fr-btn fr-icon-add-line fr-btn--icon-left" @click="newFolderOpened = true">Nouveau</button>
           <button type="button" class="fr-btn fr-btn--secondary fr-icon-upload-line fr-btn--icon-left" @click="uploadOpened = true">Importer</button>
@@ -169,5 +189,12 @@ const fileNames = computed<Record<string, string>>(() =>
 
     <NewFolderModal v-model:opened="newFolderOpened" @create="createFolder" />
     <UploadModal v-model:opened="uploadOpened" @imported="reload" />
+    <ShareModal
+      v-if="shareTarget"
+      v-model:opened="shareOpened"
+      :resource-id="shareTarget.id"
+      :resource-name="shareTarget.name"
+      resource-type="folder"
+    />
   </div>
 </template>

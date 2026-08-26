@@ -7,6 +7,10 @@ services:
       - "5173:5173"
     environment:
       - CHOKIDAR_USEPOLLING=true
+      # Le frontend proxie /api vers le backend (voir vite.config.ts) pour que
+      # le navigateur ne voie qu'une seule origine (localhost:5173) : les
+      # cookies de session posés par le backend restent same-site.
+      - VITE_API_PROXY_TARGET=http://backend:8000
     develop:
       watch:
         # Code source : synchronisé à la volée dans le conteneur (HMR Vite).
@@ -24,3 +28,52 @@ services:
           path: ./apps/frontend/package.json
         - action: rebuild
           path: ./apps/frontend/pnpm-lock.yaml
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # Hostname fixe : garantit que le claim "iss" des tokens est toujours
+      # "http://localhost:8080/realms/..." pour le navigateur, indépendamment
+      # du chemin réseau utilisé (ex: nom de service Docker interne).
+      KC_HOSTNAME: http://localhost:8080
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+  backend:
+    build:
+      context: ./apps/backend
+      target: dev
+    ports:
+      - "8000:8000"
+    environment:
+      # Doit correspondre au claim "iss" des tokens (fixé par KC_HOSTNAME
+      # côté Keycloak) — pas un problème de réseau, juste une chaîne à matcher.
+      MESDOCUMENTS_KEYCLOAK_ISSUER: http://localhost:8080/realms/mesdocuments
+      # Chemin réseau réel pour récupérer les clés JWKS : le nom du service
+      # Docker Compose, résolu via le DNS interne du réseau `default`.
+      MESDOCUMENTS_KEYCLOAK_JWKS_BASE_URL: http://keycloak:8080/realms/mesdocuments
+      # Idem pour l'échange de code / le refresh (appels serveur à serveur).
+      MESDOCUMENTS_KEYCLOAK_TOKEN_BASE_URL: http://keycloak:8080/realms/mesdocuments
+      MESDOCUMENTS_KEYCLOAK_CLIENT_ID: mesdocuments-backend
+      MESDOCUMENTS_KEYCLOAK_CLIENT_SECRET: dev-secret-change-me
+      MESDOCUMENTS_KEYCLOAK_REDIRECT_URI: http://localhost:5173/api/v1/auth/callback
+      MESDOCUMENTS_KEYCLOAK_AUDIENCE: mesdocuments-backend
+      MESDOCUMENTS_FRONTEND_BASE_URL: http://localhost:5173
+      MESDOCUMENTS_CORS_ORIGINS: '["http://localhost:5173"]'
+    depends_on:
+      - keycloak
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/backend/app
+          target: /app/app
+        - action: rebuild
+          path: ./apps/backend/pyproject.toml
+        - action: rebuild
+          path: ./apps/backend/uv.lock

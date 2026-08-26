@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
 
 const navItems = [
   { label: 'Mes documents', to: '/documents', icon: 'fr-icon-folder-2-line' },
@@ -20,7 +22,10 @@ const isActive = (to: string) => route.path === to || route.path.startsWith(`${t
       service-title="MesDocuments"
       service-description="Gestion documentaire intelligente"
       home-to="/documents"
-      :quick-links="[{ label: 'Camille Bernard', icon: 'fr-icon-account-circle-line', to: '/documents' }]"
+      :quick-links="[
+        { label: auth.displayName, icon: 'fr-icon-account-circle-line', to: '/documents' },
+        { label: 'Se déconnecter', icon: 'fr-icon-logout-box-r-line', onClick: () => auth.logout() },
+      ]"
     />
 
     <div class="fr-container flex-1 w-full py-6 flex gap-8 items-start">
